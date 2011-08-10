@@ -1,0 +1,24 @@
+<?xml version="1.0" encoding="utf-8"?>
+<s:Application xmlns:fx="http://ns.adobe.com/mxml/2009" 
+			   xmlns:s="library://ns.adobe.com/flex/spark" 
+			   xmlns:mx="library://ns.adobe.com/flex/mx"
+			   xmlns:joyflic="kr.joyfl.joyflic.*"
+			   creationComplete="init()">
+	<fx:Script>
+		<![CDATA[
+			import scenes.LoadingScene;
+			
+			public static const APP_ID : String = "176934045711593";
+			
+			private function init() : void
+			{
+				var loadingScene : LoadingScene = new LoadingScene;
+				loadingScene.percentWidth = 100;
+				loadingScene.percentHeight = 100;
+				sceneStack.pushScene( new LoadingScene );
+			}
+		]]>
+	</fx:Script>
+	
+	<joyflic:SceneStack id="sceneStack" width="100%" height="100%" />
+</s:Application>

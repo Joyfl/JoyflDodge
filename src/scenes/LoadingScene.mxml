@@ -1,0 +1,34 @@
+<?xml version="1.0" encoding="utf-8"?>
+<joyflic:Scene xmlns:fx="http://ns.adobe.com/mxml/2009" 
+			   xmlns:s="library://ns.adobe.com/flex/spark" 
+			   xmlns:mx="library://ns.adobe.com/flex/mx"
+			   xmlns:joyflic="kr.joyfl.joyflic.*">
+	<fx:Script>
+		<![CDATA[
+			import com.facebook.graph.Facebook;
+			
+			override public function onCreate( data : Object ) : void
+			{
+				Facebook.init( JoyflDodge.APP_ID, onLogin );
+			}
+			
+			private function onFacebookInit( success : Object, fail : Object ) : void
+			{
+				trace( "init" );
+			}
+			
+			private function onLogin( success : Object, fail : Object ) : void
+			{
+				if( !success ) return;
+				trace( "로그인에 성공했당께!" );
+			}
+			
+			
+		]]>
+	</fx:Script>
+	
+	<joyflic:layout>
+		<s:VerticalLayout />
+	</joyflic:layout>
+	
+</joyflic:Scene>
