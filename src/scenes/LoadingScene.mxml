@@ -7,22 +7,54 @@
 		<![CDATA[
 			import com.facebook.graph.Facebook;
 			
+			import kr.joyfl.joyflic.SceneStack;
+			
+			private const PERMS : Object = {perms: "publish_stream"};
+			
+			private var _userReqLoader : URLLoader = new URLLoader;
+			
 			override public function onCreate( data : Object ) : void
 			{
-				Facebook.init( JoyflDodge.APP_ID, onLogin );
+				Facebook.init( JoyflDodge.APP_ID, onFacebookInit, PERMS );
+				_userReqLoader.addEventListener( Event.COMPLETE, onUserLoadComplete );
 			}
 			
 			private function onFacebookInit( success : Object, fail : Object ) : void
 			{
-				trace( "init" );
+				Facebook.login( onLogin, PERMS );
 			}
 			
-			private function onLogin( success : Object, fail : Object ) : void
+			private function onLogin( success: Object, fail: Object ): void
 			{
-				if( !success ) return;
-				trace( "로그인에 성공했당께!" );
+				Facebook.api( "/me", onGetMe );
 			}
 			
+			private function onGetMe( result : Object, fail : Object ) : void
+			{
+				JoyflDodge.me.name = result.name;
+				JoyflDodge.me.id = result.id;
+				
+				_userReqLoader.load( new URLRequest( JoyflDodge.USER_REQ_URL + "?type=get&id=" + result.id ) );
+			}
+			
+			private function onUserLoadComplete( e : Event ) : void
+			{
+				var result : String = e.target.data;
+				if( result == "NO_USER" )
+				{
+					trace( "no user" );
+					_userReqLoader.load( new URLRequest( JoyflDodge.USER_REQ_URL + "?type=set&score=0&id=" + JoyflDodge.me.id ) );
+					JoyflDodge.me.score = 0;
+				}
+				else
+				{
+					if( result != "SUCCSS" ) JoyflDodge.me.score = int( result.split( ":" )[1] );
+					trace( "me.score :", JoyflDodge.me.score );
+					
+					var mainScene : MainScene = new MainScene;
+					sceneStack.pushScene( mainScene );
+				}
+			}
 			
 		]]>
 	</fx:Script>

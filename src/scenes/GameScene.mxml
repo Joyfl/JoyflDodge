@@ -1,0 +1,271 @@
+<?xml version="1.0" encoding="utf-8"?>
+<joyflic:Scene xmlns:fx="http://ns.adobe.com/mxml/2009" 
+			   xmlns:s="library://ns.adobe.com/flex/spark" 
+			   xmlns:mx="library://ns.adobe.com/flex/mx"
+			   xmlns:joyflic="kr.joyfl.joyflic.*">
+	<fx:Script>
+		<![CDATA[
+			import com.facebook.graph.Facebook;
+			
+			import kr.joyfl.joyflic.objects.GameObject;
+			
+			import managers.KeyboardManager;
+			
+			import objects.Bullet;
+			import objects.Zet;
+			
+			private static const ZERO_POINT : Point = new Point;
+			
+			private var _zet : Zet = new Zet;
+			private var _bullets : Vector.<Bullet> = new Vector.<Bullet>;
+			
+			private var _keyStates : Dictionary = new Dictionary;
+			
+			private var _zetPoint : Point = new Point;
+			private var _bulletPoint : Point = new Point;
+			
+			private var _timer : Timer = new Timer( 1000 );
+			
+			[Bindable]
+			private var score : int;
+			
+			private var _playing : Boolean;
+			
+			private var _bulletMaxSpeed : Number = 1;
+			
+			[Bindable]
+			private var canvas : BitmapData;
+			
+			private var _gameMode : String;
+			private var _rival : Object;
+			
+			private var _userReqLoader : URLLoader = new URLLoader;
+			
+			override public function onCreate( data : Object ) : void
+			{
+				super.onCreate( data );
+				
+				trace( "game mode :", data.gameMode );
+				_gameMode = data.gameMode;
+				if( _gameMode == GameMode.SINGLE )
+				{
+					rivalLabel.text = "내 최고 점수 :";
+					rivalScoreLabel.text = String( data.bestScore );
+				}
+				else if( _gameMode == GameMode.CHALLENGE )
+				{
+					_rival = data.rival;
+					rivalLabel.text = "친구의 최고 점수 :";
+					rivalScoreLabel.text = String( _rival.score );
+				}
+				
+				canvas = new BitmapData( width, height, false );
+				_zet.x = ( width - _zet.animator.width ) >> 1;
+				_zet.y = ( height - _zet.animator.height ) >> 1;
+				
+				_timer.addEventListener( TimerEvent.TIMER, onTimer );
+				_timer.start();
+				
+				_userReqLoader.addEventListener( Event.COMPLETE, onUserReqLoadComplete );
+			}
+			
+			private function onTimer( e : TimerEvent ) : void
+			{
+				if( !_playing )
+				{
+					if( _timer.currentCount == 3 )
+					{
+						startGame();
+					}
+					else return;
+				}
+				else
+				{
+					createBullet();
+					score ++;
+					_bulletMaxSpeed += 0.002;
+				}
+			}
+			
+			private function startGame() : void
+			{
+				currentState = "play";
+				_playing = true;
+				_timer.delay = 70;
+			}
+			
+			override public function update() : void
+			{
+				if( !_playing ) return;
+				
+				canvas.lock();
+				
+				canvas.fillRect( canvas.rect, 0xCCCCCC );
+				
+				if( KeyboardManager.getKeyState( Keyboard.LEFT ) )
+					_zet.vx = -1 * _zet.speed;
+				else if( KeyboardManager.getKeyState( Keyboard.RIGHT ) )
+					_zet.vx = _zet.speed;
+				else
+					_zet.vx = 0;
+				
+				if( KeyboardManager.getKeyState( Keyboard.UP ) )
+					_zet.vy = -1 * _zet.speed;
+				else if( KeyboardManager.getKeyState( Keyboard.DOWN ) )
+					_zet.vy = _zet.speed;
+				else
+					_zet.vy = 0;
+				
+				_zet.update();
+				_zetPoint.x = _zet.x;
+				_zetPoint.y = _zet.y;
+				canvas.copyPixels( _zet.animator, _zet.animator.rect, _zetPoint );
+				
+				for each( var bullet : Bullet in _bullets )
+				{
+					bullet.update();
+					_bulletPoint.x = bullet.x;
+					_bulletPoint.y = bullet.y;
+					canvas.copyPixels( bullet.animator, bullet.animator.rect, _bulletPoint );
+					
+					if( bullet.animator.hitTest( _bulletPoint, 0xff, _zet.animator, _zetPoint ) )
+					{
+						stopGame();
+					}
+				}
+				
+				canvas.unlock();
+			}
+			
+			private function createBullet() : void
+			{
+				var bullet : Bullet = new Bullet;
+				bullet.speed = _bulletMaxSpeed;
+				setBulletToRandomLocation( bullet );
+				var dx : Number = _zet.x - bullet.x;
+				var dy : Number = _zet.y - bullet.y;
+				var d : Number = Math.sqrt( dx * dx + dy * dy );
+				bullet.vx = bullet.speed * dx / d;
+				bullet.vy = bullet.speed * dy / d;
+				_bullets.push( bullet );
+			}
+			
+			private function setBulletToRandomLocation( bullet : Bullet ) : void
+			{
+				var direction : int = Math.random() * 4;
+				switch( direction )
+				{
+					case 0 : // 좌
+						bullet.x = 0;
+						bullet.y = Math.random() * height;
+						break;
+					
+					case 1 : // 상
+						bullet.x = Math.random() * width;
+						bullet.y = 0;
+						break;
+					
+					case 2 : // 우
+						bullet.x = width;
+						bullet.y = Math.random() * height;
+						break;
+					
+					case 3 : // 하
+						bullet.x = Math.random() * width;
+						bullet.y = height;
+						break;
+				}
+			}
+			
+			private function stopGame() : void
+			{
+				_timer.stop();
+				_timer.removeEventListener( TimerEvent.TIMER, onTimer );
+				_playing = false;
+				_userReqLoader.load( new URLRequest( JoyflDodge.USER_REQ_URL + "?type=update&id=" + JoyflDodge.me.id + "&score=" + score ) );
+			}
+			
+			private function onUserReqLoadComplete( e : Event ) : void
+			{
+				currentState = "end";
+				JoyflDodge.me.score = score;
+			}
+			
+			private function onPostButtonClick( e : MouseEvent ) : void
+			{
+				Facebook.api( _gameMode == GameMode.SINGLE ? "/me/feed" : "/" + _rival.id + "/feed", onFeed, getFeedParams(), "POST" );
+			}
+			
+			private function getFeedParams() : Object
+			{
+				var params : Object = {};
+				params.message = messageInput.text;
+				params.link = "http://apps.facebook.com/joyfldodge";
+				params.picture = "http://joyfl.kr/Joyfl.png";
+				if( _gameMode == GameMode.SINGLE )
+				{
+					params.name = JoyflDodge.me.name + "님이 Joyfl Dodge에서 " + score + "점을 기록했습니다!";
+					params.caption = JoyflDodge.me.name + "님의 점수에 도전해보세요!";
+				}
+				else if( _gameMode == GameMode.CHALLENGE )
+				{
+					// 성공
+					if( score > _rival.score )
+					{
+						params.name = JoyflDodge.me.name + "님이 Joyfl Dodge에서 " + _rival.name + "님에게 도전하여 " + score + "점으로 도전에 성공했습니다!"
+						params.caption = "이번엔 " + _rival.name + "님이 " + JoyflDodge.me.name + "님의 점수에 도전해보세요!";
+					}
+					// 실패
+					else
+					{
+						params.name = JoyflDodge.me.name + "님이 Joyfl Dodge에서 " + _rival.name + "님에게 도전했지만 " + score + "점으로 아쉽게 실패했습니다."
+						params.caption = _rival.name + "님의 점수에 다시 도전해보세요!";
+					}
+				}
+				params.description = "Joyfl Dodge는 총알을 오랫동안 피하며 높은 점수를 얻는 게임입니다. 혼자 점수를 내는 싱글모드와, 친구에게 도전하여 점수를 경쟁하는 도전모드가 있습니다.";
+				params.actions = '[{name: "Joyfl Dodge", link: "http://apps.facebook.com/joyfldodge"}]';
+				return params;
+			}
+			
+			private function onFeed( result : Object, fail : Object ) : void
+			{
+				trace( "result :", result );
+				trace( "fail :", fail );
+				sceneStack.popScene();
+			}
+			
+			private function onSkipButtonClick( e : MouseEvent ) : void
+			{
+				sceneStack.popScene();
+			}
+		]]>
+	</fx:Script>
+	
+	<joyflic:states>
+		<s:State name="ready" />
+		<s:State name="play" />
+		<s:State name="end" />
+	</joyflic:states>
+	
+	<s:BitmapImage source="{canvas}" width="100%" height="100%" />
+	
+	<s:Label text="점수 : {score}" />
+	<s:HGroup>
+		<s:Label id="rivalLabel" />
+		<s:Label id="rivalScoreLabel" />
+	</s:HGroup>
+	
+	<s:HGroup includeIn="end" width="100%" height="100%" horizontalAlign="center" verticalAlign="middle">
+		<s:Panel>
+			<s:layout>
+				<s:VerticalLayout paddingLeft="10" paddingRight="10" paddingTop="10" paddingBottom="10" horizontalAlign="center" />
+			</s:layout>
+			<s:Label text="{score}점을 기록했습니다! 친구들에게 자랑해보세요." />
+			<s:TextArea id="messageInput" width="100%" height="44" maxChars="200" />
+			<s:HGroup>
+				<s:Button label="자랑하기" click="onPostButtonClick( event )" />
+				<s:Button label="넘어가기" click="onSkipButtonClick( event )" />
+			</s:HGroup>
+		</s:Panel>
+	</s:HGroup>
+</joyflic:Scene>
