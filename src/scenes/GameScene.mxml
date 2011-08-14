@@ -50,7 +50,7 @@
 				if( _gameMode == GameMode.SINGLE )
 				{
 					rivalLabel.text = "내 최고 점수 :";
-					rivalScoreLabel.text = String( data.bestScore );
+					rivalScoreLabel.text = String( JoyflDodge.me.score );
 				}
 				else if( _gameMode == GameMode.CHALLENGE )
 				{
@@ -182,7 +182,10 @@
 				_timer.stop();
 				_timer.removeEventListener( TimerEvent.TIMER, onTimer );
 				_playing = false;
-				_userReqLoader.load( new URLRequest( JoyflDodge.USER_REQ_URL + "?type=update&id=" + JoyflDodge.me.id + "&score=" + score ) );
+				if( score > JoyflDodge.me.score )
+					_userReqLoader.load( new URLRequest( JoyflDodge.USER_REQ_URL + "?type=update&id=" + JoyflDodge.me.id + "&score=" + score ) );
+				else
+					currentState = "end";
 			}
 			
 			private function onUserReqLoadComplete( e : Event ) : void
