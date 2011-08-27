@@ -3,7 +3,20 @@
 				 xmlns:s="library://ns.adobe.com/flex/spark" 
 				 xmlns:mx="library://ns.adobe.com/flex/mx"
 				 xmlns:joyflic="kr.joyfl.joyflic.*"
-				 frameRate="60" width="560" height="420">
+				 frameRate="60" width="560" height="420"
+				 fontFamily="MalgunGothic">
+	<fx:Style>
+		@namespace s "library://ns.adobe.com/flex/spark";
+		@namespace mx "library://ns.adobe.com/flex/mx";
+		@namespace joyflic "kr.joyfl.joyflic.*";
+		@namespace components "components.*";
+		
+		s|List s|VScrollBar {
+			skinClass: ClassReference( "skins.JoyflDodgeVScrollBarSkin" );
+			fixedThumbSize: false;
+		}
+	</fx:Style>
+	
 	<fx:Script>
 		<![CDATA[
 			import managers.KeyboardManager;
@@ -14,11 +27,16 @@
 			
 			public static const APP_ID : String = "176934045711593";
 			public static const USER_REQ_URL : String = "http://joyfl.kr/apps/joyfldodge/user.php";
+			public static const APP_URL : String = "http://apps.facebook.com/joyfldodge";
+			public static const LOGO_URL : String = "https://fbcdn-photos-a.akamaihd.net/photos-ak-snc1/v43/65/176934045711593/app_1_176934045711593_9686.gif";
 			
 			public static var me : User = new User;
 			
 			override protected function init() : void
 			{
+				Security.loadPolicyFile( "http://profile.ak.fbcdn.net/crossdomain.xml" );
+				Security.loadPolicyFile( "https://fbcdn-profile-a.akamaihd.net/crossdomain.xml" );
+				
 				KeyboardManager.setStage( stage );
 				KeyboardManager.registerKeys( Keyboard.LEFT, Keyboard.RIGHT, Keyboard.UP, Keyboard.DOWN );
 				

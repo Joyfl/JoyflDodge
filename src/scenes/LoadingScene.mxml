@@ -9,11 +9,16 @@
 			
 			import kr.joyfl.joyflic.SceneStack;
 			
+			import mx.controls.Alert;
+			import mx.managers.PopUpManager;
+			
 			private const PERMS : Object = {perms: "publish_stream"};
 			
 			private var _userReqLoader : URLLoader = new URLLoader;
 			
-			override public function onCreate( data : Object ) : void
+			private var _loginAlert : Alert;
+			
+			override public function onCreate( data : Object = null ) : void
 			{
 				Facebook.init( JoyflDodge.APP_ID, onFacebookInit, PERMS );
 				_userReqLoader.addEventListener( Event.COMPLETE, onUserLoadComplete );
@@ -21,11 +26,29 @@
 			
 			private function onFacebookInit( success : Object, fail : Object ) : void
 			{
+				if( !success )
+				{
+					_loginAlert = Alert.show( "허가 요청 창이 뜨지 않을 경우, 팝업 차단을 해제해주세요." );
+					
+					var timer : Timer = new Timer( 1000 );
+					timer.addEventListener( TimerEvent.TIMER, onTimer );
+					timer.start();
+					return;
+				}
+				
+				Facebook.api( "/me", onGetMe );
+			}
+			
+			private function onTimer( e : TimerEvent ) : void
+			{
+				e.target.stop();
+				e.target.removeEventListener( TimerEvent.TIMER, onTimer );
 				Facebook.login( onLogin, PERMS );
 			}
 			
 			private function onLogin( success: Object, fail: Object ): void
 			{
+				PopUpManager.removePopUp( _loginAlert );
 				Facebook.api( "/me", onGetMe );
 			}
 			
@@ -40,14 +63,17 @@
 			private function onUserLoadComplete( e : Event ) : void
 			{
 				var result : String = e.target.data;
+				// db에 정보가 없음
 				if( result == "NO_USER" )
 				{
 					trace( "no user" );
 					_userReqLoader.load( new URLRequest( JoyflDodge.USER_REQ_URL + "?type=set&score=0&id=" + JoyflDodge.me.id ) );
 					JoyflDodge.me.score = 0;
 				}
+				// 데이터 가져오기 성공 또는 새로운 레코드 생성 완료
 				else
 				{
+					// 데이터 가져오기 성공. (점수:날짜)
 					if( result != "SUCCSS" ) JoyflDodge.me.score = int( result.split( ":" )[1] );
 					trace( "me.score :", JoyflDodge.me.score );
 					

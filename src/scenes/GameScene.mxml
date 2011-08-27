@@ -2,7 +2,8 @@
 <joyflic:Scene xmlns:fx="http://ns.adobe.com/mxml/2009" 
 			   xmlns:s="library://ns.adobe.com/flex/spark" 
 			   xmlns:mx="library://ns.adobe.com/flex/mx"
-			   xmlns:joyflic="kr.joyfl.joyflic.*">
+			   xmlns:joyflic="kr.joyfl.joyflic.*"
+			   xmlns:components="components.*">
 	<fx:Script>
 		<![CDATA[
 			import com.facebook.graph.Facebook;
@@ -11,20 +12,27 @@
 			
 			import managers.KeyboardManager;
 			
+			import mx.controls.Alert;
+			import mx.core.mx_internal;
+			import mx.managers.FocusManager;
+			
 			import objects.Bullet;
+			import objects.User;
 			import objects.Zet;
 			
 			private static const ZERO_POINT : Point = new Point;
+			private const SPEED_INCRE : Number = 0.002;
 			
 			private var _zet : Zet = new Zet;
 			private var _bullets : Vector.<Bullet> = new Vector.<Bullet>;
+			private var _bulletsQueue : Vector.<Bullet> = new Vector.<Bullet>;
 			
 			private var _keyStates : Dictionary = new Dictionary;
 			
 			private var _zetPoint : Point = new Point;
 			private var _bulletPoint : Point = new Point;
 			
-			private var _timer : Timer = new Timer( 1000 );
+			private var _timer : Timer = new Timer( 70 );
 			
 			[Bindable]
 			private var score : int;
@@ -37,11 +45,14 @@
 			private var canvas : BitmapData;
 			
 			private var _gameMode : String;
-			private var _rival : Object;
+			private var _rival : User;
 			
 			private var _userReqLoader : URLLoader = new URLLoader;
 			
-			override public function onCreate( data : Object ) : void
+			/** 도전에 성공했는지. */
+			private var _isChallengeSucceed : Boolean;
+			
+			override public function onCreate( data : Object = null ) : void
 			{
 				super.onCreate( data );
 				
@@ -49,49 +60,44 @@
 				_gameMode = data.gameMode;
 				if( _gameMode == GameMode.SINGLE )
 				{
-					rivalLabel.text = "내 최고 점수 :";
 					rivalScoreLabel.text = String( JoyflDodge.me.score );
 				}
 				else if( _gameMode == GameMode.CHALLENGE )
 				{
 					_rival = data.rival;
-					rivalLabel.text = "친구의 최고 점수 :";
 					rivalScoreLabel.text = String( _rival.score );
 				}
 				
-				canvas = new BitmapData( width, height, false );
-				_zet.x = ( width - _zet.animator.width ) >> 1;
-				_zet.y = ( height - _zet.animator.height ) >> 1;
+				canvas = new BitmapData( width, height );
+				_zet.movingArea = canvas.rect;
 				
 				_timer.addEventListener( TimerEvent.TIMER, onTimer );
-				_timer.start();
 				
 				_userReqLoader.addEventListener( Event.COMPLETE, onUserReqLoadComplete );
-			}
-			
-			private function onTimer( e : TimerEvent ) : void
-			{
-				if( !_playing )
-				{
-					if( _timer.currentCount == 3 )
-					{
-						startGame();
-					}
-					else return;
-				}
-				else
-				{
-					createBullet();
-					score ++;
-					_bulletMaxSpeed += 0.002;
-				}
+				
+				startGame();
 			}
 			
 			private function startGame() : void
 			{
+				for each( var bullet : Bullet in _bullets )
+				{
+					if( !bullet.shooted ) continue;
+					removeBullet( bullet );
+				}
+				
+				if( _gameMode == GameMode.SINGLE )
+					rivalScoreLabel.text = String( JoyflDodge.me.score );
+				
+				_zet.x = ( width - _zet.animator.width ) >> 1;
+				_zet.y = ( height - _zet.animator.height ) >> 1;
+				score = 0;
+				_bulletMaxSpeed = 1;
 				currentState = "play";
 				_playing = true;
-				_timer.delay = 70;
+				_timer.start();
+				
+				stage.focus = stage;
 			}
 			
 			override public function update() : void
@@ -100,7 +106,7 @@
 				
 				canvas.lock();
 				
-				canvas.fillRect( canvas.rect, 0xCCCCCC );
+				canvas.fillRect( canvas.rect, 0 );
 				
 				if( KeyboardManager.getKeyState( Keyboard.LEFT ) )
 					_zet.vx = -1 * _zet.speed;
@@ -123,10 +129,18 @@
 				
 				for each( var bullet : Bullet in _bullets )
 				{
+					if( !bullet.shooted ) continue;
 					bullet.update();
 					_bulletPoint.x = bullet.x;
 					_bulletPoint.y = bullet.y;
-					canvas.copyPixels( bullet.animator, bullet.animator.rect, _bulletPoint );
+					
+					if( bullet.x < -30 || bullet.x > width + 30 || bullet.y < -30 || bullet.y > height + 30 )
+					{
+						removeBullet( bullet );
+						continue;
+					}
+					
+					canvas.copyPixels( bullet.animator, bullet.animator.rect, _bulletPoint, null, null, true );
 					
 					if( bullet.animator.hitTest( _bulletPoint, 0xff, _zet.animator, _zetPoint ) )
 					{
@@ -135,19 +149,41 @@
 				}
 				
 				canvas.unlock();
+				
+				score ++;
+			}
+			
+			private function onTimer( e : TimerEvent ) : void
+			{
+				createBullet();
+				_bulletMaxSpeed += SPEED_INCRE;
 			}
 			
 			private function createBullet() : void
 			{
-				var bullet : Bullet = new Bullet;
+				var wasAtQueue : Boolean;
+				var bullet : Bullet;
+				if( _bulletsQueue.length ) bullet = _bulletsQueue.pop() as Bullet;
+				else
+				{
+					bullet = new Bullet;
+					_bullets.push( bullet );
+				}
+				bullet.x = bullet.y = bullet.vx = bullet.vy = 0; 
 				bullet.speed = _bulletMaxSpeed;
+				bullet.shooted = true;
 				setBulletToRandomLocation( bullet );
 				var dx : Number = _zet.x - bullet.x;
 				var dy : Number = _zet.y - bullet.y;
 				var d : Number = Math.sqrt( dx * dx + dy * dy );
 				bullet.vx = bullet.speed * dx / d;
 				bullet.vy = bullet.speed * dy / d;
-				_bullets.push( bullet );
+			}
+			
+			private function removeBullet( bullet : Bullet ) : void
+			{
+				bullet.shooted = false;
+				_bulletsQueue.push( bullet );
 			}
 			
 			private function setBulletToRandomLocation( bullet : Bullet ) : void
@@ -156,23 +192,23 @@
 				switch( direction )
 				{
 					case 0 : // 좌
-						bullet.x = 0;
+						bullet.x = -20;
 						bullet.y = Math.random() * height;
 						break;
 					
 					case 1 : // 상
 						bullet.x = Math.random() * width;
-						bullet.y = 0;
+						bullet.y = -20;
 						break;
 					
 					case 2 : // 우
-						bullet.x = width;
+						bullet.x = width + 20;
 						bullet.y = Math.random() * height;
 						break;
 					
 					case 3 : // 하
 						bullet.x = Math.random() * width;
-						bullet.y = height;
+						bullet.y = height + 20;
 						break;
 				}
 			}
@@ -180,22 +216,50 @@
 			private function stopGame() : void
 			{
 				_timer.stop();
-				_timer.removeEventListener( TimerEvent.TIMER, onTimer );
 				_playing = false;
+				
+				if( ( _gameMode == GameMode.SINGLE && score > JoyflDodge.me.score ) ||
+					( _gameMode == GameMode.CHALLENGE && score > _rival.score )  )
+					_isChallengeSucceed = true;
+				
+				trace( _isChallengeSucceed );
+				
 				if( score > JoyflDodge.me.score )
 					_userReqLoader.load( new URLRequest( JoyflDodge.USER_REQ_URL + "?type=update&id=" + JoyflDodge.me.id + "&score=" + score ) );
-				else
-					currentState = "end";
+				
+				setCurrentStateByResult();
 			}
 			
 			private function onUserReqLoadComplete( e : Event ) : void
 			{
-				currentState = "end";
+				setCurrentStateByResult();
 				JoyflDodge.me.score = score;
+			}
+			
+			private function setCurrentStateByResult() : void
+			{
+				if( _gameMode == GameMode.SINGLE )
+				{
+					if( _isChallengeSucceed )
+						currentState = "singleSuccess";
+					else
+						currentState = "singleFail";
+				}
+				else if( _gameMode == GameMode.CHALLENGE )
+				{
+					if( _isChallengeSucceed )
+						currentState = "challengeSuccess";
+					else
+						currentState = "challengeFail";
+				}
+				trace( "currentState :", currentState );
 			}
 			
 			private function onPostButtonClick( e : MouseEvent ) : void
 			{
+				startBusy();
+				messageInput.appendText( String.fromCharCode( 16 ) );
+				messageInput.text = messageInput.text.split( String.fromCharCode( 16 ) ).join( "" );
 				Facebook.api( _gameMode == GameMode.SINGLE ? "/me/feed" : "/" + _rival.id + "/feed", onFeed, getFeedParams(), "POST" );
 			}
 			
@@ -203,41 +267,49 @@
 			{
 				var params : Object = {};
 				params.message = messageInput.text;
-				params.link = "http://apps.facebook.com/joyfldodge";
-				params.picture = "http://joyfl.kr/Joyfl.png";
+				params.link = JoyflDodge.APP_URL;
+				params.picture = JoyflDodge.LOGO_URL;
 				if( _gameMode == GameMode.SINGLE )
 				{
-					params.name = JoyflDodge.me.name + "님이 Joyfl Dodge에서 " + score + "점을 기록했습니다!";
+					// 싱글모드 신기록
+					if( _isChallengeSucceed )
+						params.name = JoyflDodge.me.name + "님이 Joyfl Dodge에서 " + score + "점을 기록하여 개인 신기록을 달성했습니다!";
+					else
+						params.name = JoyflDodge.me.name + "님이 Joyfl Dodge에서 " + score + "점을 기록했습니다!";
 					params.caption = JoyflDodge.me.name + "님의 점수에 도전해보세요!";
 				}
 				else if( _gameMode == GameMode.CHALLENGE )
 				{
-					// 성공
-					if( score > _rival.score )
+					// 도전모드 성공
+					if( _isChallengeSucceed )
 					{
-						params.name = JoyflDodge.me.name + "님이 Joyfl Dodge에서 " + _rival.name + "님에게 도전하여 " + score + "점으로 도전에 성공했습니다!"
+						params.name = JoyflDodge.me.name + "님이 Joyfl Dodge에서 " + _rival.name + "님의 점수 " + _rival.score + "점에 도전하여 " + score + "점으로 승리했습니다!"
 						params.caption = "이번엔 " + _rival.name + "님이 " + JoyflDodge.me.name + "님의 점수에 도전해보세요!";
 					}
-					// 실패
+					// 도전모드 실패
 					else
 					{
-						params.name = JoyflDodge.me.name + "님이 Joyfl Dodge에서 " + _rival.name + "님에게 도전했지만 " + score + "점으로 아쉽게 실패했습니다."
+						params.name = JoyflDodge.me.name + "님이 Joyfl Dodge에서 " + _rival.name + "님의 점수 " + _rival.score + "점에 도전했지만 " + score + "점으로 아쉽게 실패했습니다."
 						params.caption = _rival.name + "님의 점수에 다시 도전해보세요!";
 					}
 				}
 				params.description = "Joyfl Dodge는 총알을 오랫동안 피하며 높은 점수를 얻는 게임입니다. 혼자 점수를 내는 싱글모드와, 친구에게 도전하여 점수를 경쟁하는 도전모드가 있습니다.";
-				params.actions = '[{name: "Joyfl Dodge", link: "http://apps.facebook.com/joyfldodge"}]';
+				params.actions = '[{name: "Joyfl Dodge", link: "' + JoyflDodge.APP_URL + '"}]';
 				return params;
 			}
 			
 			private function onFeed( result : Object, fail : Object ) : void
 			{
-				trace( "result :", result );
-				trace( "fail :", fail );
-				sceneStack.popScene();
+				currentState = "feed";
+				stopBusy();
 			}
 			
-			private function onSkipButtonClick( e : MouseEvent ) : void
+			private function onReplayButtonClick( e : MouseEvent ) : void
+			{
+				startGame();
+			}
+			
+			private function onMainButtonClick( e : MouseEvent ) : void
 			{
 				sceneStack.popScene();
 			}
@@ -245,29 +317,40 @@
 	</fx:Script>
 	
 	<joyflic:states>
-		<s:State name="ready" />
 		<s:State name="play" />
-		<s:State name="end" />
+		<s:State name="singleSuccess" />
+		<s:State name="singleFail" />
+		<s:State name="challengeSuccess" />
+		<s:State name="challengeFail" />
+		<s:State name="feed" />
 	</joyflic:states>
 	
+	<s:BitmapImage source="@Embed( source='/../assets/bg.png' )" />
 	<s:BitmapImage source="{canvas}" width="100%" height="100%" />
 	
-	<s:Label text="점수 : {score}" />
-	<s:HGroup>
-		<s:Label id="rivalLabel" />
-		<s:Label id="rivalScoreLabel" />
-	</s:HGroup>
+	<s:Label id="rivalScoreLabel" x="260" y="3" width="40" fontSize="12" />
+	<s:Label text="{score}" x="235" y="3" width="90" height="19" fontSize="22" />
 	
-	<s:HGroup includeIn="end" width="100%" height="100%" horizontalAlign="center" verticalAlign="middle">
-		<s:Panel>
-			<s:layout>
-				<s:VerticalLayout paddingLeft="10" paddingRight="10" paddingTop="10" paddingBottom="10" horizontalAlign="center" />
-			</s:layout>
-			<s:Label text="{score}점을 기록했습니다! 친구들에게 자랑해보세요." />
-			<s:TextArea id="messageInput" width="100%" height="44" maxChars="200" />
-			<s:HGroup>
-				<s:Button label="자랑하기" click="onPostButtonClick( event )" />
-				<s:Button label="넘어가기" click="onSkipButtonClick( event )" />
+	<s:HGroup excludeFrom="play" width="100%" height="100%" horizontalAlign="center" verticalAlign="middle">
+		<s:Panel width="400" height="255" height.feed="160" skinClass="skins.JoyflDodgePanelSkin">
+			<s:BitmapImage source.singleSuccess="@Embed( source='/../assets/singleSuccess.png' )"
+						   source.singleFail="@Embed( source='/../assets/singleFail.png' )"
+						   source.challengeSuccess="@Embed( source='/../assets/challengeSuccess.png' )"
+						   source.challengeFail="@Embed( source='/../assets/challengeFail.png' )"
+						   left="2" />
+			
+			<s:Label excludeFrom="play, feed" text="{score}" top="18" right="5" width="100%" fontSize="23" fontWeight="bold" textAlign="center" />
+			
+			<s:BitmapImage includeIn="feed" source.feed="@Embed( source='/../assets/feed.png' )" />
+			
+			<s:TextArea excludeFrom="play, feed" id="messageInput" left="19" top="93" width="303" height="44"
+						contentBackgroundAlpha="0" borderVisible="false" focusAlpha="0"
+						fontSize="13" fontWeight="bold" lineHeight="22" />
+			
+			<s:HGroup width="100%" top="170" top.feed="80" horizontalAlign="center" gap="-5">
+				<s:Button excludeFrom="play, feed" label="게시하기" click="onPostButtonClick( event )" skinClass="skins.PostButtonSkin" />
+				<s:Button label="재도전하기" click="onReplayButtonClick( event )" skinClass="skins.ReplayButtonSkin" />
+				<s:Button label="첫화면으로" click="onMainButtonClick( event )" skinClass="skins.MainButtonSkin" />
 			</s:HGroup>
 		</s:Panel>
 	</s:HGroup>
