@@ -221,6 +221,8 @@
 				if( ( _gameMode == GameMode.SINGLE && score > JoyflDodge.me.score ) ||
 					( _gameMode == GameMode.CHALLENGE && score > _rival.score )  )
 					_isChallengeSucceed = true;
+				else
+					_isChallengeSucceed = false;
 				
 				trace( _isChallengeSucceed );
 				
@@ -300,6 +302,7 @@
 			
 			private function onFeed( result : Object, fail : Object ) : void
 			{
+				messageInput.text = "";
 				currentState = "feed";
 				stopBusy();
 			}
@@ -328,8 +331,9 @@
 	<s:BitmapImage source="@Embed( source='/../assets/bg.png' )" />
 	<s:BitmapImage source="{canvas}" width="100%" height="100%" />
 	
-	<s:Label id="rivalScoreLabel" x="260" y="3" width="40" fontSize="12" />
-	<s:Label text="{score}" x="235" y="3" width="90" height="19" fontSize="22" />
+	<s:BitmapImage source="@Embed( source='/../assets/score_border.png' )" x="235" y="-2" />
+	<s:Label id="rivalScoreLabel" x="260" y="8" width="40" fontSize="12" textAlign="center" />
+	<s:Label text="{score}" x="235" y="28" width="90" fontSize="22" textAlign="center" />
 	
 	<s:HGroup excludeFrom="play" width="100%" height="100%" horizontalAlign="center" verticalAlign="middle">
 		<s:Panel width="400" height="255" height.feed="160" skinClass="skins.JoyflDodgePanelSkin">

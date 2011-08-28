@@ -1,0 +1,21 @@
+<?xml version="1.0" encoding="utf-8"?>
+<s:List xmlns:fx="http://ns.adobe.com/mxml/2009" 
+		xmlns:s="library://ns.adobe.com/flex/spark" 
+		xmlns:mx="library://ns.adobe.com/flex/mx"
+		itemRenderer="renderers.FriendRenderer">
+	<fx:Script>
+		<![CDATA[
+			import renderers.FriendRenderer;
+			
+			import scenes.MainScene;
+			
+			public function select( renderer : FriendRenderer ) : void
+			{
+				var friends : Array = MainScene( parentDocument ).friends.source;
+				if( friends[this.selectedIndex] )
+					friends[this.selectedIndex].selected = false;
+				this.selectedIndex = friends.indexOf( renderer.data );
+			}
+		]]>
+	</fx:Script>
+</s:List>

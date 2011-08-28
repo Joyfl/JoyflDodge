@@ -2,11 +2,67 @@
 <s:ItemRenderer xmlns:fx="http://ns.adobe.com/mxml/2009" 
 				xmlns:s="library://ns.adobe.com/flex/spark" 
 				xmlns:mx="library://ns.adobe.com/flex/mx" 
-				autoDrawBackground="true">
+				autoDrawBackground="false"
+				mouseOver="onMouseOver( event )"
+				mouseOut="onMouseOut( event )"
+				mouseDown="onMouseDown( event )"
+				dataChange="onDataChange( event )">
 	
-	<s:BitmapImage source="{data.picture}" left="135" top="16" width="48" height="48" />
-	<s:BitmapImage source="@Embed( source='/../assets/friend_list_item.png' )" />
-	<s:Label text="{data.name}" left="13" top="34" width="106" fontSize="13" fontWeight="bold" textAlign="center" />
-	<s:Label text="{data.score}" left="198" top="31" width="68" fontSize="22" fontWeight="bold" textAlign="center" />
+	<fx:Script>
+		<![CDATA[
+			import components.FriendList;
+			
+			import mx.events.FlexEvent;
+			
+			private function onMouseOver( e : MouseEvent ) : void
+			{
+				if( currentState != "selected" )
+				{
+					currentState = "over";
+				}
+			}
+			
+			private function onMouseOut( e : MouseEvent ) : void
+			{
+				if( currentState != "selected" )
+				{
+					currentState = "up";
+				}
+			}
+			
+			private function onMouseDown( e : MouseEvent ) : void
+			{
+				data.selected = true;
+				FriendList( this.parentDocument.parent ).select( this );
+			}
+			
+			private function onDataChange( e : FlexEvent ) : void
+			{
+				if( data.selected )
+					currentState = "selected";
+				else
+					currentState = "up";
+			}
+			
+		]]>
+	</fx:Script>
+	
+	<s:states>
+		<s:State name="up" />
+		<s:State name="over" />
+		<s:State name="selected" />
+	</s:states>
+	
+	<s:layout>
+		<s:HorizontalLayout verticalAlign="middle" />
+	</s:layout>
+	
+	<s:BitmapImage source="@Embed( source='/../assets/arrow.png' )" alpha.up="0" alpha.over="0.3" alpha.selected="1" />
+	<s:Group>
+		<s:BitmapImage source="{data.picture}" x="135" y="16" width="48" height="48" />
+		<s:BitmapImage source="@Embed( source='/../assets/friend_list_item.png' )" />
+		<s:Label text="{data.name}" x="13" y="34" width="106" fontSize="13" fontWeight="bold" textAlign="center" />
+		<s:Label text="{data.score}" x="198" y="31" width="68" fontSize="22" fontWeight="bold" textAlign="center" />
+	</s:Group>
 	
 </s:ItemRenderer>

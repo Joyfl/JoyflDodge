@@ -18,6 +18,8 @@ package objects
 		public var date : String;
 		[Bindable] public var picture : BitmapData;
 		
+		[Bindable] public var selected : Boolean;
+		
 		private var _callback : Function;
 		
 		public function User()
