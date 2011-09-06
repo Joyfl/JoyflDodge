@@ -226,8 +226,8 @@
 				
 				trace( _isChallengeSucceed );
 				
-				if( score > JoyflDodge.me.score )
-					_userReqLoader.load( new URLRequest( JoyflDodge.USER_REQ_URL + "?type=update&id=" + JoyflDodge.me.id + "&score=" + score ) );
+				if( score >= JoyflDodge.me.score )
+					_userReqLoader.load( new URLRequest( JoyflDodge.USER_REQ_URL + "?type=update&id=" + JoyflDodge.me.id + "&score=" + ( score + 1 ) ) );
 				
 				setCurrentStateByResult();
 			}
