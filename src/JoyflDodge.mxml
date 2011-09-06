@@ -4,7 +4,7 @@
 				 xmlns:mx="library://ns.adobe.com/flex/mx"
 				 xmlns:joyflic="kr.joyfl.joyflic.*"
 				 frameRate="60" width="560" height="420"
-				 fontFamily="MalgunGothic">
+				 fontFamily="Malgun Gothic">
 	<fx:Style>
 		@namespace s "library://ns.adobe.com/flex/spark";
 		@namespace mx "library://ns.adobe.com/flex/mx";
